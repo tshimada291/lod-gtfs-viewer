@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Linked-GTFS Viewer (Timetable)</title>
+<link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/2.3.2/css/bootstrap.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<script src="http://code.jquery.com/ui/1.11.4/jquery-ui.min.js"></script>
+<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css">
+<script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1/i18n/jquery.ui.datepicker-ja.min.js"></script>
+<!--<link rel="stylesheet" href="js/jquery.timepicker.css">
+<script src="js/jquery.timepicker.min.js"></script>-->
+<link rel="stylesheet" href="css/style.css">
+<style>
+.stop_info{
+	display: inline-block;
+	vertical-align: top;
+	margin: 5px 10px;
+}
+</style>
+
+<script>
+$(function(){
+	var xsd_date, time, youbi;
+	var wd_ja = ["日", "月", "火", "水", "木", "金", "土"];
+	var wd_en = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+	///曜日の初期設定
+	var now = new Date();
+	var W = now.getDay();
+	$("#days").val(wd_en[W]);
+
+	setInterval(function(){
+		var now = new Date();
+		var Y = now.getFullYear();
+		var M = now.getMonth() + 1;
+		var D = now.getDate();
+		var W = now.getDay();
+		var h = now.getHours();
+		var mi = now.getMinutes();
+		var s = now.getSeconds();
+		var MM = ("0" + M).slice(-2);
+		var DD = ("0" + D).slice(-2);
+		var hh = ("0" + h).slice(-2);
+		var mm = ("0" + mi).slice(-2);
+		var ss = ("0" + s).slice(-2);
+		xsd_date = Y+'-'+MM+'-'+DD;
+		time = parseInt(h,10)*60+parseInt(mi,10);
+		//$("#now").text(Y +"年"+ MM +"月"+ DD +"日（"+ wd_ja[W] +"）"+ hh +"時"+ mm +"分"+ ss +"秒");
+	}, 1000);
+
+
+	///route_query();
+	createStopList();
+
+	///時刻表表示
+	$("#search").click(function(){
+		//var furl = $("#feedurls").val();
+		var stop_id = $("#stops").val();
+		var youbi = $("#days").val();
+		var dflg=0, tflg=0;
+		var time="12:34:56"
+		if($("#chkdates").prop('checked')) {
+			dflg=1;
+		}
+		if($("#chktime").prop('checked')) {
+			tflg=1;
+		}
+		$("#stimes").empty();
+		console.log(stop_id, youbi, xsd_date, dflg, time, tflg);
+		searchTimetable_LOD(stop_id, youbi, xsd_date, dflg, time, tflg)
+	});
+
+});
+
+/////停留所一覧
+function createStopList(){
+	var endpoint = 'https://sparql.odp.jig.jp/api/v1/sparql'; //$("#endpoint").val()
+
+	var sparql = `
+PREFIX gtfs: <http://vocab.gtfs.org/terms#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
+SELECT * {
+	?stop a gtfs:Stop;
+	rdfs:label ?stop_name;
+	geo:lat ?stop_lat;
+	geo:long ?stop_lon.
+}
+ORDER BY ?stop_name
+LIMIT 1000
+	`;
+
+	$.getJSON(endpoint +"?query="+ encodeURIComponent(sparql), null, function(json,status){
+
+		var optlist="";
+		$.each(json.results.bindings, function(i, item){
+			optlist += '<option value="' + item.stop.value +'">';
+			optlist += item.stop_name.value +'</option>';
+		});
+		$("#stops").append(optlist);
+	});
+}
+
+/////指定停留所の時刻一覧を表示
+function searchTimetable_LOD(src_stop_id, youbi, date, dflg, time, tflg){
+	console.log(youbi, date, time)
+
+	var endpoint = 'https://sparql.odp.jig.jp/api/v1/sparql';
+
+	var sparql = `
+PREFIX gtfs: <http://vocab.gtfs.org/terms#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+SELECT *
+WHERE {
+	?stop_time a gtfs:StopTime;
+	gtfs:trip ?trip_id;
+	gtfs:trip [
+		gtfs:service ?service;
+		gtfs:route ?route_id;
+		gtfs:route [ gtfs:longName ?route_long_name ];
+		gtfs:headsign ?trip_headsign;
+		gtfs:shortName ?trip_short_name;
+	];
+	gtfs:stop <`+ src_stop_id +`>;
+	gtfs:stop [ rdfs:label ?stop_name ];
+	gtfs:stopSequence ?order;
+	gtfs:arrivalTime ?arrival_time;
+	gtfs:departureTime ?departure_time;
+	gtfs:pickupType ?pickup_type;
+	gtfs:dropOffType ?drop_off_type;
+	OPTIONAL {
+		?stop_time a gtfs:StopTime;
+		gtfs:trip[
+			gtfs:route [gtfs:color ?route_color]
+		]
+	}
+	{
+		SELECT ?service
+		WHERE {
+			?service gtfs:serviceRule [
+				a gtfs:CalendarRule;
+				gtfs:`+ youbi +` ?day_of_week;
+			]
+			OPTIONAL {
+				?service gtfs:serviceRule [
+					a gtfs:CalendarDateRule;
+					dcterms:date "`+ date +`"^^xsd:date;
+					gtfs:dateAddition ?addition;
+				]
+			}
+			FILTER ( BOUND(?addition) && ?addtion || !BOUND(?addition) && ?day_of_week )
+		}
+	}
+}
+	`;
+
+	$.getJSON(endpoint +"?query="+ encodeURIComponent(sparql), null, function(json,status){
+		console.log("sTT", json, status);
+
+		$("#stimes").empty();
+		var table = $("<table>").addClass("table table-bordered");
+
+		//var vars = json.head.vars;
+		var row = '<tr><th>系統名</th><th>便名</th><th>行先</th><th>到着時刻</th><th>出発時刻</th><th>乗車制限</th><th>降車制限</th></tr>';
+		table.append(row);
+
+		var buff=[];
+		$.each(json.results.bindings, function(i, item){
+			//var row = $("<tr>");
+			var dat={};
+			dat.routeLname = item.route_long_name.value;
+			dat.tripId = item.trip_id.value;
+			dat.triphdsign = item.trip_headsign.value;
+			dat.tripSname = item.trip_short_name.value;
+			dat.stopseq = item.order.value;
+			dat.arrival   = changeTimeForm(item.arrival_time.value);
+			dat.departure = changeTimeForm(item.departure_time.value);
+			dat.pickup    = pickupTypeText(item.pickup_type.value);
+			dat.dropoff   = dropOffTypeText(item.drop_off_type.value);
+			if(item.route_color && item.route_color.value){
+				dat.rcolor = item.route_color.value;
+			}
+			else{
+				dat.rcolor = "ffffff";
+			}
+			var dhm = dat.departure.split(":");
+			dat.dtime = parseInt(dhm[0],10)*60+parseInt(dhm[1],10);
+
+			buff.push(dat);
+		});
+
+		///リストのソート（出発時刻基準）
+		buff.sort(function(a,b){
+			if(a.dtime < b.dtime) return -1;
+			if(a.dtime > b.dtime) return 1;
+			return 0;
+		});
+		console.log("sort", buff);
+
+		$.each(buff, function(i, item){
+			var row = '<tr><td style="background: #'+ item.rcolor +'">'+ item.routeLname +'</td><td>'+ item.tripSname +'</td><td>'+ item.triphdsign +'</td>'
+					+ '<td>'+ item.arrival +'</td><td><a href="lod-gtfs-timetable-trip.html?tid='+item.tripId+'&stid='+src_stop_id+'&seq='+item.stopseq+'" title="指定便の詳細" target="_blank">'+item.departure+'</a></td>'
+					+ '<td>'+ item.pickup +'</td><td>'+ item.dropoff +'</td></tr>';
+			table.append(row);
+		});
+		//$("#stimes").addClass("span8").append(table);
+		$("#stimes").append(table);
+	});
+}
+
+/////durationタイプからtimeタイプの表記に変更する
+function changeTimeForm(duration){
+	var ptH = duration.indexOf("H");
+	var ptM = duration.indexOf("M");
+	var ptS = duration.indexOf("S");
+
+	var dhour = duration.substring(2, ptH);
+	var dhh = ("0" + dhour).slice(-2);
+	var dmm ="00", dss="00";
+	if(ptM>=0){
+		var dmin = duration.substring(ptH+1, ptM);
+		var dmm = ("0" + dmin).slice(-2);
+	}
+	if(ptS>=0){
+		var dsec = duration.substring(ptM+1, ptS);
+		var dss = ("0" + dsec).slice(-2);
+	}
+	//console.log(duration, ptH,ptM,ptS, dhh, dmm, dss);
+
+	var res = dhh +':'+ dmm +':'+ dss;
+
+	return res;
+}
+
+/////乗車区分テキスト
+function pickupTypeText(ptype){
+	/// http://vocab.gtfs.org/terms#pickupType
+	if(ptype.indexOf("#Regular")>=0){
+		return "";
+	}
+	if(ptype.indexOf("#NotAvailable")>=0){
+		return "降車専用";
+	}
+	if(ptype.indexOf("#MustPhone")>=0){
+		return "乗車予約必要";
+	}
+	if(ptype.indexOf("#MustCoordinateWithDriver")>=0){
+		return "運転手へ乗車の事前連絡必要";
+	}
+	return ptype;
+}
+/////降車区分テキスト
+function dropOffTypeText(dtype){
+	if(dtype.indexOf("#Regular")>=0){
+		return "";
+	}
+	if(dtype.indexOf("#NotAvailable")>=0){
+		return "乗車専用";
+	}
+	if(dtype.indexOf("#MustPhone")>=0){
+		return "降車予約必要";
+	}
+	if(dtype.indexOf("#MustCoordinateWithDriver")>=0){
+		return "運転手へ降車の事前連絡必要";
+	}
+	return dtype;
+}
+
+</script>
+</head>
+<body>
+<header class="header">
+<div class="header-inner">
+<div class="headsite">
+	<div class="site">
+	<h1><a href="./">Linked-GTFS Viewer</a></h1>
+	</div>
+</div>
+</div>
+</header>
+<noscript>
+<p>このページではJavaScriptを使用しています。</p>
+</noscript>
+
+<div class="content">
+<h2>時刻表</h2>
+
+<!--<label for="feedurls">１．公共交通データの選択</label>
+<select id="feedurls"></select>
+<input id="FLoad" type="button" name="FLoad" value="２．選択データの読み込み"><br>
+</form>
+<hr>
+<!--<div id="now"></div>-->
+
+<fieldset>
+<legend>条件指定</legend>
+<form>
+<label for="stops">駅・停留所</label>
+<select id="stops" style="width:auto; height:auto"></select><br>
+<label for="days">曜日</label>
+<select id="days" style="width:auto; height:auto">
+<option value="monday">月曜日</option>
+<option value="tuesday">火曜日</option>
+<option value="wednesday">水曜日</option>
+<option value="thursday">木曜日</option>
+<option value="friday">金曜日</option>
+<option value="saturday">土曜日</option>
+<option value="sunday">日曜日</option>
+</select><br>
+<!--<input id="chkdates" type="checkbox" name="chkdates" value="1"> 本日の運行・運休設定を時刻表に反映（季節運行など）<br>
+<input id="chktime" type="checkbox" name="chktime" value="1"> 現在の時刻以降の時刻表を表示<br>-->
+<input id="search" type="button" name="search" value="この条件で時刻表を表示">
+</form>
+</fieldset>
+
+<div id="stimes"></div>
+
+
+</div>
+<div class="footer">
+<div class="footer-inner">
+Data：<a href="https://creativecommons.org/licenses/by/2.1/jp/" target="_blank">CC BY</a> <a href="https://odp.jig.jp/" target="_blank">オープンデータプラットフォーム（odp.jig.jp）</a><br>
+Apps：&copy; 2018 <a href="https://github.com/tshimada291" target="_blank">T.Shimada</a>. MIT License.</div>
+</div>
+</div>
+</body>
+</html>

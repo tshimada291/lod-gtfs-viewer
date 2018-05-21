@@ -1,0 +1,142 @@
+@charset "utf-8";
+*{margin: 0; padding: 0;}
+html, body{
+	font-family: 'Lucida Grande', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+	height: 100%;
+	margin: 0px;
+	background: #eee;
+}
+.site h1{color: #ffffff;
+	text-decoration: none}
+.site h1 a{color: #ffffff;
+	text-decoration: none}
+.site h1{margin: 0;
+	font-size: 30px}
+
+.menu{font-weight:bold}
+.menu ul{
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.menu li a{
+	display: block;
+	padding: 10px 15px;
+	color: #fff;
+	font-size: 16px;
+	text-decoration: none;
+}
+.menu li a:hover{background-color: #0080ff}
+.menu ul:after{
+	content: "";
+	display: block;
+	clear: both;
+}
+.menu li{
+	float: left;
+	width: auto
+}
+
+.content{
+	padding-bottom: 20px;
+	background: #fff;
+}
+
+.article{padding:20px; background:#fff}
+.article ul{margin: 10px 20px}
+.article h2, h3, h4{margin-top:20px; margin-bottom:10px}
+
+p, div{font-size: 18px}
+.trip_detail p{
+	font-size: 20px;
+	font-weight: bold;
+	color: #00f;
+}
+legend, fieldset{background: #fff}
+fieldset{margin: 20px 0}
+form, select, input{font-size: 16px}
+form{margin: 10px}
+#search{padding: 5px; font-size: 20px}
+#agency, #routes, #trips{
+	margin: 10px;
+	//max-height: 150px;
+	//overflow: scroll;
+}
+#stimes{
+	font-size: 18px;
+	margin-bottom: 20px;
+}
+#stimes:after{
+	content: "";
+	display: block;
+	clear: both;
+}
+.stop_info{margin-bottom: 20px}
+#stimes0{
+	//width: 50%;
+	//float: right;
+}
+#stimes1{
+	//width: 50%;
+	//float: left;
+}
+table{background: #999}
+th{
+	white-space: nowrap;
+	padding: 5px;
+	//text-align: center;
+	color: #fff;
+	background: #666;
+}
+td{
+	//width: 100px;
+	padding: 10px;
+	text-align: center;
+	background: #fff;
+}
+.footer{padding-top: 15px;
+	padding-bottom: 15px;
+	background-color: #eee}
+
+/* ボックスの左右 */
+.header, .info, .footer, .content{
+	padding-left: 15px;
+	padding-right:15px}
+
+/* ボックスの上下 */
+.header{padding-top: 10px;
+	padding-bottom: 5px;
+	background: #003096;}
+
+/* ########### 768px以上 ########### */
+@media (min-width: 768px) {
+
+/* headsiteとheadnavを横に並べる設定 */
+.header:after{content: "";
+	display: block;
+	clear: both}
+
+.headsite{float: left;
+	width: auto}
+
+.headnav{float: right;
+	width: auto}
+
+.content:after{content: "";
+			display: block;
+			clear: both}
+
+.pickup .overview{float: left;
+			width: 32%;
+			margin-right: 1%}
+}
+
+/* ########### 1040px以上 ########### */
+@media (min-width: 1040px) {
+
+/* 全体の横幅を固定 
+.header-inner, .footer-inner, .pickup, .content
+	{width: 1000px;
+	margin-left: auto;
+	margin-right: auto}*/
+}

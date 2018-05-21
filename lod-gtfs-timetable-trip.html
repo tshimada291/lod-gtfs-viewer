@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Linked-GTFS Viewer (Trip)</title>
+<link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/2.3.2/css/bootstrap.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<script src="http://code.jquery.com/ui/1.11.4/jquery-ui.min.js"></script>
+<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css">
+<script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1/i18n/jquery.ui.datepicker-ja.min.js"></script>
+<!--<link rel="stylesheet" href="js/jquery.timepicker.css">
+<script src="js/jquery.timepicker.min.js"></script>-->
+
+<script>
+var xsd_date, time, youbi;
+var wd_ja = ["日", "月", "火", "水", "木", "金", "土"];
+var wd_en = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+$(function(){
+	var params =location.search.substring(1).split('&');
+	console.log(params);
+
+	var arg={};
+	for(var i=0; params[i]; i++){
+		console.log(params[i]);
+		var kv = params[i].split('=');	//key-value
+		arg[decodeURIComponent(kv[0])]=decodeURIComponent(kv[1]);	//kv[0]=key,kv[1]=value
+	}
+	console.log(arg);
+
+	var tripid = arg["tid"];
+	var stopid = arg["stid"];
+	var seq = parseInt(arg["seq"]);
+
+	stoptime_query(tripid, stopid, seq);
+});
+
+/////指定便時刻表
+function stoptime_query(tripid, stopid, seq){
+	var endpoint = 'https://sparql.odp.jig.jp/api/v1/sparql'; //$("#endpoint").val()
+
+	var sparql = `
+PREFIX gtfs: <http://vocab.gtfs.org/terms#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT *
+WHERE {
+	?stop_time a gtfs:StopTime;
+	gtfs:trip <`+ tripid +`>;
+	gtfs:stop ?stop_id;
+	gtfs:stop [ rdfs:label ?stop_name ];
+	gtfs:stopSequence ?order;
+	gtfs:arrivalTime ?arrival_time;
+	gtfs:departureTime ?departure_time;
+	gtfs:pickupType ?pickup_type;
+	gtfs:dropOffType ?drop_off_type.
+}
+ORDER BY ?order
+LIMIT 100
+	`;
+
+
+	$.getJSON(endpoint +"?query="+ encodeURIComponent(sparql), null, function(json,status){
+		//render(data);
+		var table = $("<table>").addClass("table table-bordered");
+
+		//var vars = json.head.vars;
+		var row = '<tr><th>順</th><th>経由地</th><th>到着時刻</th><th>出発時刻</th><th>乗車制限</th><th>降車制限</th></tr>';
+		table.append(row);
+
+		var buff=[];
+		$.each(json.results.bindings, function(i, item){
+			var arrival   = changeTimeForm(item.arrival_time.value);
+			var departure = changeTimeForm(item.departure_time.value);
+			var pickup    = pickupTypeText(item.pickup_type.value);
+			var dropoff   = dropOffTypeText(item.drop_off_type.value);
+
+			var row = '<tr><td>'+ item.order.value +'</td><td>'+ item.stop_name.value +'</td>'
+					+ '<td>'+ arrival +'</td><td>'+ departure +'</td>'
+					+ '<td>'+ pickup +'</td><td>'+ dropoff +'</td></tr>';
+			table.append(row);
+		});
+		$("#result").addClass("span10").append(table);
+		//$("#result").append(table);
+	})
+}
+
+/////durationタイプからtimeタイプの表記に変更する
+function changeTimeForm(duration){
+	var ptH = duration.indexOf("H");
+	var ptM = duration.indexOf("M");
+	var ptS = duration.indexOf("S");
+
+	var dhour = duration.substring(2, ptH);
+	var dhh = ("0" + dhour).slice(-2);
+	var dmm ="00", dss="00";
+	if(ptM>=0){
+		var dmin = duration.substring(ptH+1, ptM);
+		var dmm = ("0" + dmin).slice(-2);
+	}
+	if(ptS>=0){
+		var dsec = duration.substring(ptM+1, ptS);
+		var dss = ("0" + dsec).slice(-2);
+	}
+	//console.log(duration, ptH,ptM,ptS, dhh, dmm, dss);
+
+	var res = dhh +':'+ dmm +':'+ dss;
+
+	return res;
+}
+
+/////乗車区分テキスト
+function pickupTypeText(ptype){
+	/// http://vocab.gtfs.org/terms#pickupType
+	if(ptype.indexOf("#Regular")>=0){
+		return "";
+	}
+	if(ptype.indexOf("#NotAvailable")>=0){
+		return "降車専用";
+	}
+	if(ptype.indexOf("#MustPhone")>=0){
+		return "乗車予約必要";
+	}
+	if(ptype.indexOf("#MustCoordinateWithDriver")>=0){
+		return "運転手へ乗車の事前連絡必要";
+	}
+	return ptype;
+}
+/////降車区分テキスト
+function dropOffTypeText(dtype){
+	if(dtype.indexOf("#Regular")>=0){
+		return "";
+	}
+	if(dtype.indexOf("#NotAvailable")>=0){
+		return "乗車専用";
+	}
+	if(dtype.indexOf("#MustPhone")>=0){
+		return "降車予約必要";
+	}
+	if(dtype.indexOf("#MustCoordinateWithDriver")>=0){
+		return "運転手へ降車の事前連絡必要";
+	}
+	return dtype;
+}
+
+</script>
+<style>
+#footer{clear: both}
+</style>
+</head>
+<body>
+<div class="header">
+<h1>Linked-GTFS Viewer</h1>
+<h2>指定便の情報</h2>
+</div>
+<noscript>
+<p>このページではJavaScriptを使用しています。</p>
+</noscript>
+<div id="content">
+<div id="result"></div>
+</div>
+<div class="footer">
+<div class="footer-inner">
+Data：<a href="https://creativecommons.org/licenses/by/2.1/jp/" target="_blank">CC BY</a> <a href="https://odp.jig.jp/" target="_blank">オープンデータプラットフォーム（odp.jig.jp）</a><br>
+Apps：&copy; 2018 <a href="https://github.com/tshimada291" target="_blank">T.Shimada</a>. MIT License.</div>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,144 @@
+@charset "utf-8";
+
+*{margin: 0; padding: 0;}
+html, body{
+	height: 100%;
+}
+
+body{font-family: 'Lucida Grande', 'Hiragino Kaku Gothic Pro', Meiryo, sans-serif}
+
+.site h1{color: #ffffff;
+	text-decoration: none}
+.site h1 a{color: #ffffff;
+	text-decoration: none}
+.site h1{margin: 0;
+	font-size: 30px}
+
+.menu{font-weight:bold}
+.menu ul{
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.menu li a{
+	display: block;
+	padding: 10px 15px;
+	color: #fff;
+	font-size: 16px;
+	text-decoration: none;
+}
+.menu li a:hover{background-color: #0080ff}
+.menu ul:after{
+	content: "";
+	display: block;
+	clear: both;
+}
+.menu li{
+	float: left;
+	width: auto
+}
+
+.content h2{margin-bottom: 20px}
+.content h3, h4{margin: 20px 0 10px 0}
+.content p{max-width: 100%;
+		margin-top: 0;
+		margin-bottom: 16px}
+
+.overview{margin-bottom: 10px}
+.overview a{display: block;
+		background-color: #eee;
+		color: #000;
+		text-decoration: none}
+.overview a:hover{opacity: 0.8}
+.overview img{max-width: 100%;
+		height:auto;
+		border: none;
+		margin-bottom: 15px;
+		vertical-align: bottom}
+.overview h4{margin: 0 15px 15px 15px;
+		font-size: 20px;
+		font-weight: normal}
+.overview p{margin: 0 15px 15px 15px;
+		padding-bottom: 15px;
+		font-size: 14px}
+
+/*
+.article{margin:20px}
+.article ul{margin: 10px 20px}
+.article h2, h3, h4{margin-top:20px; margin-bottom:10px}
+*/
+
+table{background: #999}
+th{
+	white-space: nowrap;
+	padding: 5px;
+	//text-align: center;
+	color: #fff;
+	background: #666;
+}
+td{
+	//width: 100px;
+	padding: 10px;
+	text-align: center;
+	background: #fff;
+}
+
+/* footer */
+.footer{padding-top: 15px;
+	padding-bottom: 15px;
+	background-color: #eee}
+
+/* ボックスの左右 */
+.header, .info, .footer, .content{
+	padding-left: 15px;
+	padding-right:15px}
+
+/* ボックスの上下 */
+.header{padding-top: 10px;
+	padding-bottom: 5px;
+	background: #003096;}
+
+.content{padding-top: 25px;
+		padding-bottom: 25px}
+
+/* ########### 600px未満 ########### */
+@media (max-width: 599px) {
+.menu li a{padding: 10px 7px;
+	font-size: 11px}
+
+.catch{padding: 5px 10px;
+		font-size: 12px}
+}
+
+/* ########### 768px以上 ########### */
+@media (min-width: 768px) {
+
+/* headsiteとheadnavを横に並べる設定 */
+.header:after{content: "";
+	display: block;
+	clear: both}
+
+.headsite{float: left;
+	width: auto}
+
+.headnav{float: right;
+	width: auto}
+
+.content:after{content: "";
+			display: block;
+			clear: both}
+
+.pickup .overview{float: left;
+			width: 32%;
+			margin-right: 1%}
+}
+
+/* ########### 1040px以上 ########### */
+@media (min-width: 1040px) {
+
+/* 全体の横幅を固定 */
+.header-inner, .footer-inner, .pickup, .content
+	{width: 1000px;
+	margin-left: auto;
+	margin-right: auto}
+}
