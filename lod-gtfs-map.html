@@ -20,21 +20,62 @@ var wd_ja = ["日", "月", "火", "水", "木", "金", "土"];
 var wd_en = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 var map;
 
-var LineW=3, LineBW=9, LineThinW=1, LineOP=0.5, LineBOP=0.8, LineThinOP=0.1;
+var LineW=2, LineBW=9, LineThinW=1, LineOP=0.3, LineBOP=0.8, LineThinOP=0.1;
 
 $(function(){
+
 	///ベースマップの生成
 	map = createBaseMap('map-canvas', [43.770822, 142.364973], 7);
 
-	route_query();
+	//route_query();
 	stopsMapping();
 	shapes_query();
+	show_feed_info();
 });
+
+/////feed information
+function show_feed_info(){
+	var endpoint = 'https://sparql.odp.jig.jp/api/v1/sparql';
+	var sparql = `
+PREFIX odp: <http://odp.jig.jp/odp/1.0#>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX schema: <http://schema.org/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT *
+WHERE{
+	?feed a odp:BusPublisher;
+	dcterms:publisher[
+		rdfs:label ?feed_publisher_name;
+		schema:url ?feed_publisher_url;
+	];
+	schema:inLanguage ?feed_lang;
+	schema:version ?feed_version;
+	dcterms:temporal[
+		dcterms:issued ?feed_start_date;
+		dcterms:valid ?feed_end_date;
+	].
+}
+	`;
+
+	$.getJSON(endpoint +"?query="+ encodeURIComponent(sparql), null, function(json, status){
+		$("#feedinfo").empty();
+
+		var table = $("<table>").addClass("table table-bordered");
+		var item = json.results.bindings[0];
+		console.log(item);
+		var tbody = '<tr><th>データ提供</th><td><a href="'+ item.feed_publisher_url.value +'" target="_blank">'+ item.feed_publisher_name.value +'</a></td></tr>'
+					+'<tr><th>言語</th><td>'+ item.feed_lang.value +'</td></tr>'
+					+'<tr><th>バージョン</th><td>'+ item.feed_version.value +'</td></tr>'
+					+'<tr><th>有効期限</th><td>'+ item.feed_start_date.value +' ～ '+ item.feed_end_date.value +'</td></tr>';
+
+		table.append(tbody);
+		$("#feedinfo").append(table);
+	});
+}
 
 /////経路一覧
 function route_query(){
 	var endpoint = 'https://sparql.odp.jig.jp/api/v1/sparql'; //$("#endpoint").val()
-
 	var sparql = 
 `PREFIX odp: <http://odp.jig.jp/odp/1.0#>
 PREFIX gtfs: <http://vocab.gtfs.org/terms#>
@@ -87,7 +128,7 @@ LIMIT 1000
 			var marker = L.circleMarker(
 				[item.stop_lat.value, item.stop_lon.value],
 				{
-					radius: 10,
+					radius: 9,
 					color: "#666",
 					weight: 2,
 					opacity: 0.9,
@@ -217,7 +258,7 @@ WHERE {
 		console.log("sort", buff);
 
 		$.each(buff, function(i, item){
-			var row = '<tr><td style="background: #'+ item.rcolor +'">'+ item.routeLname +'</td><td>'+ item.triphdsign +'</td>'
+			var row = '<tr><td style="background: #'+ item.rcolor +'"><b>'+ item.routeLname +'</b></td><td>'+ item.triphdsign +'</td>'
 					+ '<td><a href="lod-gtfs-timetable-trip.html?tid='+item.tripId+'&stid='+src_stop_id+'&seq='+item.stopseq+'" title="指定便の詳細" target="_blank">'+item.departure+'</a></td>'
 					+ '</tr>';//<td>'+ item.pickup +'</td><td>'+ item.dropoff +'</td></tr>';
 			table.append(row);
@@ -303,7 +344,7 @@ SELECT * {
 			geo:lat ?shape_pt_lat;
 			geo:long ?shape_pt_lon;
 		]
-	].
+	]
 }
 ORDER BY ?trip ?shape_pt_sequence
 	`;
@@ -319,7 +360,7 @@ ORDER BY ?trip ?shape_pt_sequence
 			if(item.shape_id.value != shape_id){
 				var polyline = L.polyline(SPoints,
 					{
-						color: '#333',//rcolor,
+						color: '#999',
 						weight: LineW,
 						opacity: LineOP,
 						shape_id: shape_id
@@ -339,11 +380,6 @@ ORDER BY ?trip ?shape_pt_sequence
 			}).addTo(LShapes);
 
 		LShapes.addTo(map);
-
-		//var bounds = L.latLngBounds(Points);
-		//return bounds;
-		//map.fitBounds(bounds);
-		//render(json);
 	});
 }
 
@@ -436,15 +472,18 @@ function createBaseMap(canvas, cpoint, zoom){
 <noscript>
 <p>このページではJavaScriptを使用しています。</p>
 </noscript>
+
 <div id="content">
-	<div id="map-canvas"></div>
-	<div id="result"></div>
+
+<div id="map-canvas"></div>
 
 <div id="sidebox">
+<div class="notice">・現在は鯖江市つつじバスのデータのみ利用可能です。</div>
 
 <div id="stimes"></div>
-
+<div id="feedinfo"></div>
 </div>
+
 </div>
 
 <div class="footer">
