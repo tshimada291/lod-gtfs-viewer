@@ -24,11 +24,11 @@ html, body{
 #sidebox{
 	float: left;
 	height: 100%;
-	width: 30%;
-	//padding: 0 1px;
+	width: 28%;
+	padding: 0 1%;
 	overflow:auto;
 }
-
+#feedinfo{margin-top: 10px}
 
 .site h1{color: #ffffff;
 	text-decoration: none}
@@ -80,7 +80,6 @@ td{
 	padding: 4px 2px;
 	background: #fff;
 }
-.sidebox{overflow: scroll}
 .stimetable{width: 100%}
 .stimetable th, td{text-align: center;}
 .pstinfo, .stop_info{margin: 10px 0}
