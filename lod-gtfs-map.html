@@ -20,9 +20,13 @@ var wd_ja = ["日", "月", "火", "水", "木", "金", "土"];
 var wd_en = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 var map;
 
+///shapes用
+var Shape;
+var LShapeline;
 var LineW=2, LineBW=9, LineThinW=1, LineOP=0.3, LineBOP=0.8, LineThinOP=0.1;
 
 $(function(){
+	WResize('#content');
 
 	///ベースマップの生成
 	map = createBaseMap('map-canvas', [43.770822, 142.364973], 7);
@@ -62,7 +66,6 @@ WHERE{
 
 		var table = $("<table>").addClass("table table-bordered");
 		var item = json.results.bindings[0];
-		console.log(item);
 		var tbody = '<tr><th>データ提供</th><td><a href="'+ item.feed_publisher_url.value +'" target="_blank">'+ item.feed_publisher_name.value +'</a></td></tr>'
 					+'<tr><th>言語</th><td>'+ item.feed_lang.value +'</td></tr>'
 					+'<tr><th>バージョン</th><td>'+ item.feed_version.value +'</td></tr>'
@@ -138,16 +141,15 @@ LIMIT 1000
 					stop_id: item.stop.value,
 					stop_name: item.stop_name.value
 				});
-			marker.on({
-				click: function(e){
-					var DateTime = getDateTime();
-					searchTimetable_LOD_lite(e.target.options.stop_id, e.target.options.stop_name, DateTime.youbi, DateTime.date, 1, time, 1);
-					//showRoutes(e, zipurl)
-				}
+			marker.on('click', function(e){
+				var DateTime = getDateTime();
+				searchTimetable_LOD_lite(e.target.options.stop_id, e.target.options.stop_name, DateTime.youbi, DateTime.date, 1, time, 1);
+				//showRoutes(e, zipurl)
 			});
-			map.on({
-				click: function(e){
-					$("#stimes").empty();
+			map.on('click', function(e){
+				$("#stimes").empty();
+				if(map.hasLayer(LShapeline)){
+					map.removeLayer(LShapeline);
 				}
 			});
 
@@ -170,7 +172,6 @@ function searchTimetable_LOD_lite(src_stop_id, src_stop_name, youbi, date, dflg,
 	var sparql = `
 PREFIX gtfs: <http://vocab.gtfs.org/terms#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 PREFIX dcterms: <http://purl.org/dc/terms/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 SELECT *
@@ -183,6 +184,7 @@ WHERE {
 		gtfs:route [ gtfs:longName ?route_long_name ];
 		gtfs:headsign ?trip_headsign;
 		gtfs:shortName ?trip_short_name;
+		gtfs:shape ?shape_id;
 	];
 	gtfs:stop <`+ src_stop_id +`>;
 	gtfs:stopSequence ?order;
@@ -224,13 +226,14 @@ WHERE {
 		var row = '<tr><th>系統名</th><th>行先</th><th>出発時刻</th></tr>';
 		table.append(row);
 
-		var buff=[];
+		var buff=[], shapelist=[];
 		$.each(json.results.bindings, function(i, item){
 			//var row = $("<tr>");
 			var dat={};
 			dat.routeLname = item.route_long_name.value;
 			dat.tripId = item.trip_id.value;
 			dat.triphdsign = item.trip_headsign.value;
+			dat.shapeId = item.shape_id.value;
 			//dat.tripSname = item.trip_short_name.value;
 			dat.stopseq = item.order.value;
 			//dat.arrival   = changeTimeForm(item.arrival_time.value);
@@ -247,7 +250,9 @@ WHERE {
 			dat.dtime = parseInt(dhm[0],10)*60+parseInt(dhm[1],10);
 
 			buff.push(dat);
+			shapelist.push(dat.shapeId);
 		});
+		$.unique(shapelist);	///重複するshape_idを除く
 
 		///リストのソート（出発時刻基準）
 		buff.sort(function(a,b){
@@ -255,7 +260,7 @@ WHERE {
 			if(a.dtime > b.dtime) return 1;
 			return 0;
 		});
-		console.log("sort", buff);
+		//console.log("sort", buff, shapelist);
 
 		$.each(buff, function(i, item){
 			var row = '<tr><td style="background: #'+ item.rcolor +'"><b>'+ item.routeLname +'</b></td><td>'+ item.triphdsign +'</td>'
@@ -265,6 +270,48 @@ WHERE {
 		});
 		//$("#stimes").addClass("span8").append(table);
 		$("#stimes").append(table);
+
+
+		$.each(shapelist, function(i, shpid){
+			//console.log(shpid);
+		});
+
+/*
+/////
+		LShapeline = L.layerGroup();
+		var SPoints=[];
+
+		//Shape = json.results.bindings;
+		$.each(shapelist, function(i, shpid){
+
+			$.each(Shape, function(i, shpid){
+				if()
+			}
+		
+			if(item.shape_id.value != shape_id){
+				var polyline = L.polyline(SPoints,
+					{
+						color: '#999',
+						weight: LineW,
+						opacity: LineOP,
+						shape_id: shape_id
+					}).addTo(LShapes);
+
+				shape_id = item.shape_id.value;
+				SPoints=[];
+			}
+			SPoints.push([item.shape_pt_lat.value, item.shape_pt_lon.value]);
+		});
+		var polyline = L.polyline(SPoints,
+			{
+				color: '#333',//rcolor,
+				weight: LineW,
+				opacity: LineOP,
+				shape_id: shape_id
+			}).addTo(LShapes);
+
+		LShapes.addTo(map);
+*/
 	});
 }
 
@@ -334,7 +381,8 @@ function shapes_query(){
 	var sparql = `
 PREFIX gtfs: <http://vocab.gtfs.org/terms#>
 PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
-SELECT * {
+SELECT DISTINCT ?shape_id ?shape_pt_sequence ?shape_pt_lat ?shape_pt_lon
+WHERE{
 	?trip a gtfs:Trip;
 
 	gtfs:shape ?shape_id;
@@ -346,7 +394,7 @@ SELECT * {
 		]
 	]
 }
-ORDER BY ?trip ?shape_pt_sequence
+ORDER BY ?shape_id ?shape_pt_sequence
 	`;
 
 	$.getJSON(endpoint +"?query="+ encodeURIComponent(sparql), null, function(json,status){
@@ -355,8 +403,10 @@ ORDER BY ?trip ?shape_pt_sequence
 		var LShapes = L.layerGroup();
 		var SPoints=[];
 
-		var shape_id = json.results.bindings[0].shape_id.value;
-		$.each(json.results.bindings, function(i, item) {
+		Shape = json.results.bindings;
+		var shape_id = Shape[0].shape_id.value;
+		console.log(Shape);
+		$.each(Shape, function(i, item) {
 			if(item.shape_id.value != shape_id){
 				var polyline = L.polyline(SPoints,
 					{
@@ -388,7 +438,7 @@ function getDateTime(){
 	var currentDT = new Date();
 	//var currentDate = $("#datepicker").datepicker("getDate");
 	//var currentTime = $("#timepicker").timepicker("getTime");
-	console.log(currentDT);
+	//console.log(currentDT);
 	var Y = currentDT.getFullYear();
 	var M = currentDT.getMonth() + 1;
 	var D = currentDT.getDate();
@@ -456,6 +506,26 @@ function createBaseMap(canvas, cpoint, zoom){
 
 	return map_obj;
 }
+
+/////リサイズ時のマップ調整
+var timer = false;
+$(window).resize(function(){
+	/*if(timer !== false){
+		clearTimeout(timer);
+	}*/
+	//timer = setTimeout(function(){
+		WResize('#content');
+	//}, 500);
+});
+function WResize(canvas){
+	var WindowHeight = $(window).height();
+	if(WindowHeight > 320){
+		var h = WindowHeight - 110;
+		//$('body').css('height',WindowHeight +'px');
+		$(canvas).css('height',h +'px');
+	}
+}
+
 
 </script>
 </head>
