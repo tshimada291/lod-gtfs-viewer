@@ -5,11 +5,13 @@
 <title>Linked-GTFS Viewer (Map)</title>
 <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/2.3.2/css/bootstrap.min.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
-<script src="http://code.jquery.com/ui/1.11.4/jquery-ui.min.js"></script>
+<script src="https://code.jquery.com/ui/1.11.4/jquery-ui.min.js"></script>
+<!-- leaflet -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css" integrity="sha512-Rksm5RenBEKSKFjgI3a41vrjkw4EVPlJ3+OiI65vTjIdo9brlAacEuKOiQ5OFh7cOI1bkDwLqdLw3Zg0cRJAAQ==" crossorigin=""/>
 <script src="https://unpkg.com/leaflet@1.3.1/dist/leaflet.js" integrity="sha512-/Nsx9X4HebavoBvEBuyp3I7od5tA0UzAxs+j83KgC8PU0kgB4XiK4Lfe4y4cgBtaRJQEIFCW+oC506aPT2L1zw==" crossorigin=""></script>
+<!-- utility -->
 <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css">
-<script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1/i18n/jquery.ui.datepicker-ja.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1/i18n/jquery.ui.datepicker-ja.min.js"></script>
 <!--<link rel="stylesheet" href="js/jquery.timepicker.css">
 <script src="js/jquery.timepicker.min.js"></script>-->
 <link rel="stylesheet" href="css/mapstyle.css">
@@ -18,22 +20,26 @@
 var xsd_date, time, youbi;
 var wd_ja = ["日", "月", "火", "水", "木", "金", "土"];
 var wd_en = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+///map, layer
 var map;
+var LCtrl;	//レイヤーコントロール
 
 ///shapes用
-var Shape;
+var Shps;
 var LShapeline;
-var LineW=2, LineBW=9, LineThinW=1, LineOP=0.3, LineBOP=0.8, LineThinOP=0.1;
+var LineW=2, LineBW=5, LineThinW=1, LineOP=0.8, LineBOP=0.8, LineThinOP=0.1;
 
 $(function(){
+	///表示部調整
 	WResize('#content');
 
-	///ベースマップの生成
+	///ベースマップ生成
 	map = createBaseMap('map-canvas', [43.770822, 142.364973], 7);
 
 	//route_query();
-	stopsMapping();
-	shapes_query();
+	mappingStops();
+	mappingShapes();
 	show_feed_info();
 });
 
@@ -79,8 +85,8 @@ WHERE{
 /////経路一覧
 function route_query(){
 	var endpoint = 'https://sparql.odp.jig.jp/api/v1/sparql'; //$("#endpoint").val()
-	var sparql = 
-`PREFIX odp: <http://odp.jig.jp/odp/1.0#>
+	var sparql = `
+PREFIX odp: <http://odp.jig.jp/odp/1.0#>
 PREFIX gtfs: <http://vocab.gtfs.org/terms#>
 PREFIX dcterms: <http://purl.org/dc/terms/>
 SELECT * {
@@ -96,7 +102,8 @@ SELECT * {
 	}
 }
 ORDER BY ?route
-LIMIT 100`;
+LIMIT 100
+	`;
 
 	$.getJSON(endpoint +"?query="+ encodeURIComponent(sparql), null, function(json, status){
 		console.log("routes",json);
@@ -104,7 +111,7 @@ LIMIT 100`;
 }
 
 /////停留所一覧
-function stopsMapping(){
+function mappingStops(){
 	var endpoint = 'https://sparql.odp.jig.jp/api/v1/sparql'; //$("#endpoint").val()
 
 	var sparql = `
@@ -161,10 +168,11 @@ LIMIT 1000
 		var bounds = L.latLngBounds(Points);
 		//return bounds;
 		map.fitBounds(bounds);
+		LCtrl.addOverlay(LStops,"全停留所");
 	});
 }
 
-/////指定停留所の時刻一覧を表示（簡易表示版）
+/////指定停留所の時刻一覧を表示
 function searchTimetable_LOD_lite(src_stop_id, src_stop_name, youbi, date, dflg, time, tflg){
 
 	var endpoint = 'https://sparql.odp.jig.jp/api/v1/sparql';
@@ -272,46 +280,21 @@ WHERE {
 		$("#stimes").append(table);
 
 
-		$.each(shapelist, function(i, shpid){
-			//console.log(shpid);
-		});
-
-/*
-/////
+		/////指定停留所を通る経路の表示
+		if(map.hasLayer(LShapeline)){
+			map.removeLayer(LShapeline);
+		}
 		LShapeline = L.layerGroup();
-		var SPoints=[];
-
-		//Shape = json.results.bindings;
 		$.each(shapelist, function(i, shpid){
-
-			$.each(Shape, function(i, shpid){
-				if()
-			}
-		
-			if(item.shape_id.value != shape_id){
-				var polyline = L.polyline(SPoints,
-					{
-						color: '#999',
-						weight: LineW,
-						opacity: LineOP,
-						shape_id: shape_id
-					}).addTo(LShapes);
-
-				shape_id = item.shape_id.value;
-				SPoints=[];
-			}
-			SPoints.push([item.shape_pt_lat.value, item.shape_pt_lon.value]);
+			var polyline = L.polyline(Shps[shpid],
+				{
+					color: '#f00',
+					weight: LineBW,
+					opacity: LineOP,
+					shape_id: shpid
+				}).addTo(LShapeline);
 		});
-		var polyline = L.polyline(SPoints,
-			{
-				color: '#333',//rcolor,
-				weight: LineW,
-				opacity: LineOP,
-				shape_id: shape_id
-			}).addTo(LShapes);
-
-		LShapes.addTo(map);
-*/
+		LShapeline.addTo(map);
 	});
 }
 
@@ -374,9 +357,9 @@ function dropOffTypeText(dtype){
 }
 
 
-/////shape
-function shapes_query(){
-	var endpoint = 'https://sparql.odp.jig.jp/api/v1/sparql'; //$("#endpoint").val()
+/////shapeマッピング（初回）
+function mappingShapes(){
+	var endpoint = 'https://sparql.odp.jig.jp/api/v1/sparql';
 
 	var sparql = `
 PREFIX gtfs: <http://vocab.gtfs.org/terms#>
@@ -402,6 +385,7 @@ ORDER BY ?shape_id ?shape_pt_sequence
 
 		var LShapes = L.layerGroup();
 		var SPoints=[];
+		Shps = {};
 
 		Shape = json.results.bindings;
 		var shape_id = Shape[0].shape_id.value;
@@ -416,6 +400,8 @@ ORDER BY ?shape_id ?shape_pt_sequence
 						shape_id: shape_id
 					}).addTo(LShapes);
 
+				Shps[shape_id] = SPoints;	///shape_idに関係する座標群を保持
+
 				shape_id = item.shape_id.value;
 				SPoints=[];
 			}
@@ -423,13 +409,17 @@ ORDER BY ?shape_id ?shape_pt_sequence
 		});
 		var polyline = L.polyline(SPoints,
 			{
-				color: '#333',//rcolor,
+				color: '#999',//rcolor,
 				weight: LineW,
 				opacity: LineOP,
 				shape_id: shape_id
 			}).addTo(LShapes);
 
+		Shps[shape_id] = SPoints;
+
+		console.log("Shps", Shps);
 		LShapes.addTo(map);
+		LCtrl.addOverlay(LShapes,"全路線");
 	});
 }
 
@@ -460,7 +450,7 @@ function getDateTime(){
 function createBaseMap(canvas, cpoint, zoom){
 	///マップタイル設定
 	//国土地理院 http://maps.gsi.go.jp/help/use.html
-	kokudo = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
+	var kokudo = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
 					attribution: "<a href='http://maps.gsi.go.jp/development/ichiran.html' target='_blank'>地理院タイル</a>"
 				}),
 	kokudo_pale = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', {
